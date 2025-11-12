@@ -1,0 +1,58 @@
+version: '3.8'
+
+# Define a rede interna para que os serviços se comuniquem
+networks:
+  microservice-net:
+    driver: bridge
+
+services:
+
+  # --- User Service ---
+  user-service:
+    build:
+      context: ./users_service  # Caminho para o Dockerfile
+    container_name: user-service
+    restart: always             # Política de restart
+    networks:
+      - microservice-net
+    environment:
+      # Variáveis de ambiente (ex: porta interna)
+      FLASK_APP: app.py
+      FLASK_RUN_PORT: 5001
+    expose:
+      - "5001"                  # Apenas expõe na rede interna
+
+  # --- Order Service ---
+  order-service:
+    build:
+      context: ./orders_service
+    container_name: order-service
+    restart: always
+    networks:
+      - microservice-net
+    environment:
+      FLASK_APP: app.py
+      FLASK_RUN_PORT: 5002
+    expose:
+      - "5002"
+    # Garante que o User Service esteja pronto antes do Order Service tentar conectar
+    depends_on:
+      - user-service
+      
+  # --- API Gateway ---
+  api-gateway:
+    build:
+      context: ./gateway_service
+    container_name: api-gateway
+    restart: always
+    networks:
+      - microservice-net
+    environment:
+      FLASK_APP: app.py
+      FLASK_RUN_PORT: 8081
+    ports:
+      - "8081:8081"             # Expõe a porta 8081 para o mundo externo
+    # O Gateway depende dos dois serviços para rotear requisições
+    depends_on:
+      - user-service
+      - order-service
